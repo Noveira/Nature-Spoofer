@@ -143,19 +143,22 @@ window.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 const data = result.data;
                 
-                // Uygulama adı kontrolü
-                if (data.app_name !== CGAuth.YOUR_APP_NAME) {
-                    message.textContent = currentLang === 'tr' ? 'Bu lisans bu uygulama için geçerli değil!' : 'This license is not valid for this application!';
-                    message.className = 'message error';
-                    return;
-                }
+                // Debug: Uygulama adını göster
+                console.log('App name from cgauth:', data.app_name);
+                console.log('Expected app name:', CGAuth.YOUR_APP_NAME);
+                
+                // Uygulama adı kontrolü (şimdilik devre dışı - cgauth'da ayarla)
+                // if (data.app_name !== CGAuth.YOUR_APP_NAME) {
+                //     message.textContent = currentLang === 'tr' ? 'Bu lisans bu uygulama için geçerli değil!' : 'This license is not valid for this application!';
+                //     message.className = 'message error';
+                //     return;
+                // }
                 
                 // Lisans geçerli
                 currentLicenseInfo = {
                     key: licenseKey,
                     activationTime: new Date(),
-                    duration: data.days_remaining || 30,
-                    unit: 'days',
+                    daysRemaining: data.days_remaining || 30,
                     expirationTime: new Date(Date.now() + (data.days_remaining || 30) * 24 * 60 * 60 * 1000),
                     isAdmin: data.is_admin || false,
                     appName: data.app_name
@@ -264,9 +267,9 @@ function updateTimeRemaining() {
     // Admin kontrolü
     if (currentLicenseInfo.isAdmin) {
         if (currentLang === 'tr') {
-            document.getElementById('timeRemaining').innerHTML = '<span style="color: #10b981;">∞ Sınırsız</span>';
+            document.getElementById('timeRemaining').innerHTML = '<span style="color: #6ee7b7;">∞ Sınırsız</span>';
         } else {
-            document.getElementById('timeRemaining').innerHTML = '<span style="color: #10b981;">∞ Unlimited</span>';
+            document.getElementById('timeRemaining').innerHTML = '<span style="color: #6ee7b7;">∞ Unlimited</span>';
         }
         return;
     }
@@ -299,19 +302,23 @@ function updateTimeRemaining() {
     let timeText = '';
     if (currentLang === 'tr') {
         if (days > 0) {
-            timeText = `${days} gün ${hours} saat ${minutes} dakika`;
+            timeText = `${days} gün ${hours} saat`;
         } else if (hours > 0) {
-            timeText = `${hours} saat ${minutes} dakika ${seconds} saniye`;
-        } else {
+            timeText = `${hours} saat ${minutes} dakika`;
+        } else if (minutes > 0) {
             timeText = `${minutes} dakika ${seconds} saniye`;
+        } else {
+            timeText = `${seconds} saniye`;
         }
     } else {
         if (days > 0) {
-            timeText = `${days} days ${hours} hours ${minutes} minutes`;
+            timeText = `${days} days ${hours} hours`;
         } else if (hours > 0) {
-            timeText = `${hours} hours ${minutes} minutes ${seconds} seconds`;
-        } else {
+            timeText = `${hours} hours ${minutes} minutes`;
+        } else if (minutes > 0) {
             timeText = `${minutes} minutes ${seconds} seconds`;
+        } else {
+            timeText = `${seconds} seconds`;
         }
     }
     
