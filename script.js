@@ -134,15 +134,25 @@ window.addEventListener('DOMContentLoaded', () => {
             
             console.log('Validation response:', response);
             
-            if (response.success && response.valid) {
+            if (response.success) {
+                const data = response.data;
+                
+                // Uygulama adı kontrolü
+                if (data.app_name !== CGAuth.YOUR_APP_NAME) {
+                    message.textContent = currentLang === 'tr' ? 'Bu lisans bu uygulama için geçerli değil!' : 'This license is not valid for this application!';
+                    message.className = 'message error';
+                    return;
+                }
+                
                 // Lisans geçerli
                 currentLicenseInfo = {
                     key: licenseKey,
                     activationTime: new Date(),
-                    duration: response.duration || 24,
-                    unit: response.unit || 'hours',
-                    expirationTime: new Date(Date.now() + (response.duration || 24) * 60 * 60 * 1000),
-                    isAdmin: response.isAdmin || false
+                    duration: data.days_remaining || 30,
+                    unit: 'days',
+                    expirationTime: new Date(Date.now() + (data.days_remaining || 30) * 24 * 60 * 60 * 1000),
+                    isAdmin: data.is_admin || false,
+                    appName: data.app_name
                 };
                 
                 if (currentLicenseInfo.isAdmin) {
