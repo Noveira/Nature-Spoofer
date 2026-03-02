@@ -158,11 +158,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 currentLicenseInfo = {
                     key: licenseKey,
                     activationTime: new Date(),
-                    daysRemaining: data.days_remaining || 30,
-                    expirationTime: new Date(Date.now() + (data.days_remaining || 30) * 24 * 60 * 60 * 1000),
+                    daysRemaining: daysRemaining,
+                    expirationTime: new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000),
                     isAdmin: data.is_admin || false,
-                    appName: data.app_name
+                    appName: data.app_name,
+                    status: data.status
                 };
+                
+                console.log('Final currentLicenseInfo:', currentLicenseInfo);
                 
                 if (currentLicenseInfo.isAdmin) {
                     isAdmin = true;
