@@ -128,6 +128,19 @@ window.addEventListener('DOMContentLoaded', () => {
             document.body.style.filter = 'none';
         }
     });
+    
+    // İndirme butonları
+    document.getElementById('downloadWindows').addEventListener('click', function() {
+        alert('Windows sürümü indirilecek! (Dosya yolu eklenecek)');
+    });
+    
+    document.getElementById('downloadMac').addEventListener('click', function() {
+        alert('macOS sürümü indirilecek! (Dosya yolu eklenecek)');
+    });
+    
+    document.getElementById('downloadLinux').addEventListener('click', function() {
+        alert('Linux sürümü indirilecek! (Dosya yolu eklenecek)');
+    });
 });
 
 // Ana ekranı göster
