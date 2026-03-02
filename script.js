@@ -1,3 +1,39 @@
+// Geçerli lisans anahtarları (süre bilgisi ile)
+const validLicenseKeys = [
+    // Test lisansı - 1 dakika
+    { key: 'NS-7K9M-2XPQ-4WVH-8JTL', duration: 1, unit: 'minutes' },
+    
+    // 24 saatlik lisanslar
+    { key: 'NS-3RFG-9YBN-6DCP-1MZX', duration: 24, unit: 'hours' },
+    { key: 'NS-5QWE-8HJK-2VNM-7PLR', duration: 24, unit: 'hours' },
+    { key: 'NS-4TYU-6GHB-9XCZ-3KWQ', duration: 24, unit: 'hours' },
+    { key: 'NS-8MNB-1VCX-5ZAQ-2WER', duration: 24, unit: 'hours' },
+    { key: 'NS-2LKJ-7HGF-4DSA-9POI', duration: 24, unit: 'hours' },
+    { key: 'NS-6UYT-3REW-8QAS-1ZXC', duration: 24, unit: 'hours' },
+    { key: 'NS-9VBN-4MKL-7JHG-5FDS', duration: 24, unit: 'hours' },
+    { key: 'NS-1QAZ-8WSX-3EDC-6RFV', duration: 24, unit: 'hours' },
+    { key: 'NS-7TGB-2YHN-9UJM-4IKO', duration: 24, unit: 'hours' },
+    
+    // 7 günlük lisanslar
+    { key: 'NS-WEEK-1A2B-3C4D-5E6F', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-7G8H-9I0J-1K2L', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-3M4N-5O6P-7Q8R', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-9S0T-1U2V-3W4X', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-5Y6Z-7A8B-9C0D', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-1E2F-3G4H-5I6J', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-7K8L-9M0N-1O2P', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-3Q4R-5S6T-7U8V', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-9W0X-1Y2Z-3A4B', duration: 7, unit: 'days' },
+    { key: 'NS-WEEK-5C6D-7E8F-9G0H', duration: 7, unit: 'days' },
+    
+    // Admin lisansı - Sınırsız
+    { key: 'NS-ADMIN-X9K7-M2P5-Q8W3-ULTRA', duration: 0, unit: 'unlimited' }
+];
+
+let currentLicenseInfo = null;
+let timeUpdateInterval = null;
+let isAdmin = false;
+
 // Dil sistemi
 let currentLang = 'tr';
 
@@ -22,6 +58,13 @@ function switchLanguage(lang) {
     document.querySelectorAll('.lang-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
     });
+    
+    // Ayarlar sekmesindeki radio butonları güncelle
+    if (lang === 'tr') {
+        document.getElementById('langTR').checked = true;
+    } else {
+        document.getElementById('langEN').checked = true;
+    }
     
     // Mesajları çevir
     updateMessages(lang);
@@ -68,20 +111,86 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const db = window.electronAPI.loadDatabase();
-        const validKey = db.licenseKeys.find(k => k.key === licenseKey);
+        // Lisans anahtarını kontrol et
+        const licenseData = validLicenseKeys.find(l => l.key === licenseKey);
         
-        if (!validKey) {
+        if (!licenseData) {
             message.textContent = window.messages.invalidKey;
             message.className = 'message error';
             return;
         }
         
+        // Lisans aktivasyon zamanını kontrol et veya oluştur
+        let activationTime = localStorage.getItem(`license_${licenseKey}`);
+        
+        // Admin kontrolü
+        if (licenseData.unit === 'unlimited') {
+            isAdmin = true;
+            
+            // Admin için süre kontrolü yok
+            currentLicenseInfo = {
+                key: licenseKey,
+                duration: 0,
+                unit: 'unlimited',
+                isAdmin: true
+            };
+            
+            message.textContent = window.messages.loginSuccess;
+            message.className = 'message success';
+            
+            setTimeout(() => {
+                document.getElementById('loginScreen').classList.remove('active');
+                document.getElementById('mainScreen').classList.add('active');
+                updateTimeRemaining();
+                showAdminPanel();
+            }, 800);
+            return;
+        }
+        
+        if (!activationTime) {
+            // İlk kez kullanılıyor, aktivasyon zamanını kaydet
+            activationTime = new Date().toISOString();
+            localStorage.setItem(`license_${licenseKey}`, activationTime);
+        }
+        
+        // Süre kontrolü
+        const activationDate = new Date(activationTime);
+        const now = new Date();
+        const diffMs = now - activationDate;
+        
+        let expirationMs;
+        if (licenseData.unit === 'minutes') {
+            expirationMs = licenseData.duration * 60 * 1000;
+        } else if (licenseData.unit === 'hours') {
+            expirationMs = licenseData.duration * 60 * 60 * 1000;
+        } else {
+            expirationMs = licenseData.duration * 24 * 60 * 60 * 1000;
+        }
+        
+        if (diffMs >= expirationMs) {
+            message.textContent = currentLang === 'tr' ? 'Lisans süresi dolmuş!' : 'License expired!';
+            message.className = 'message error';
+            return;
+        }
+        
+        // Lisans bilgilerini sakla
+        currentLicenseInfo = {
+            key: licenseKey,
+            activationTime: activationDate,
+            duration: licenseData.duration,
+            unit: licenseData.unit,
+            expirationTime: new Date(activationDate.getTime() + expirationMs)
+        };
+        
         message.textContent = window.messages.loginSuccess;
         message.className = 'message success';
         
+        // İndirme ekranına geç
         setTimeout(() => {
-            showMainScreen(licenseKey);
+            document.getElementById('loginScreen').classList.remove('active');
+            document.getElementById('mainScreen').classList.add('active');
+            updateTimeRemaining();
+            startTimeUpdate();
         }, 800);
     });
     
@@ -91,6 +200,17 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('loginScreen').classList.add('active');
         document.getElementById('licenseKey').value = '';
         document.getElementById('loginMessage').textContent = '';
+        
+        // Zaman güncellemesini durdur
+        if (timeUpdateInterval) {
+            clearInterval(timeUpdateInterval);
+            timeUpdateInterval = null;
+        }
+        currentLicenseInfo = null;
+        isAdmin = false;
+        
+        // Admin panelini gizle
+        document.querySelector('.admin-only').style.display = 'none';
     });
     
     // Menü navigasyonu
@@ -107,17 +227,20 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Pencere kontrolleri
-    document.getElementById('minimizeBtn').addEventListener('click', () => {
-        window.electronAPI.minimizeWindow();
+    // İndirme butonları
+    document.getElementById('downloadWindows').addEventListener('click', function() {
+        alert('Windows sürümü indirilecek! (Dosya yolu eklenecek)');
+        // window.location.href = 'downloads/NatureSoftware-Windows.exe';
     });
     
-    document.getElementById('maximizeBtn').addEventListener('click', () => {
-        window.electronAPI.maximizeWindow();
+    document.getElementById('downloadMac').addEventListener('click', function() {
+        alert('macOS sürümü indirilecek! (Dosya yolu eklenecek)');
+        // window.location.href = 'downloads/NatureSoftware-macOS.dmg';
     });
     
-    document.getElementById('closeBtn').addEventListener('click', () => {
-        window.electronAPI.closeWindow();
+    document.getElementById('downloadLinux').addEventListener('click', function() {
+        alert('Linux sürümü indirilecek! (Dosya yolu eklenecek)');
+        // window.location.href = 'downloads/NatureSoftware-Linux.AppImage';
     });
     
     // Karanlık mod
@@ -129,28 +252,98 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // İndirme butonları
-    document.getElementById('downloadWindows').addEventListener('click', function() {
-        alert('Windows sürümü indirilecek! (Dosya yolu eklenecek)');
+    // Dil ayarları (Ayarlar sekmesinden)
+    document.getElementById('langTR').addEventListener('change', function() {
+        if (this.checked) {
+            switchLanguage('tr');
+        }
     });
     
-    document.getElementById('downloadMac').addEventListener('click', function() {
-        alert('macOS sürümü indirilecek! (Dosya yolu eklenecek)');
+    document.getElementById('langEN').addEventListener('change', function() {
+        if (this.checked) {
+            switchLanguage('en');
+        }
     });
     
-    document.getElementById('downloadLinux').addEventListener('click', function() {
-        alert('Linux sürümü indirilecek! (Dosya yolu eklenecek)');
+    // Lisans sürelerini sıfırla
+    document.getElementById('resetLicenses').addEventListener('click', function() {
+        if (confirm('Tüm lisans süreleri sıfırlanacak. Emin misiniz?')) {
+            localStorage.clear();
+            alert('Tüm lisans süreleri sıfırlandı!');
+        }
     });
 });
 
-// Ana ekranı göster
-function showMainScreen(licenseKey) {
-    document.getElementById('loginScreen').classList.remove('active');
-    document.getElementById('mainScreen').classList.add('active');
+// Kalan süreyi hesapla ve göster
+function updateTimeRemaining() {
+    if (!currentLicenseInfo) return;
     
-    document.getElementById('displayName').textContent = 'User';
-    document.getElementById('userInitial').textContent = 'U';
+    // Admin kontrolü
+    if (currentLicenseInfo.isAdmin) {
+        if (currentLang === 'tr') {
+            document.getElementById('timeRemaining').innerHTML = '<span style="color: #10b981;">∞ Sınırsız</span>';
+        } else {
+            document.getElementById('timeRemaining').innerHTML = '<span style="color: #10b981;">∞ Unlimited</span>';
+        }
+        return;
+    }
     
-    const db = window.electronAPI.loadDatabase();
-    document.getElementById('userCount').textContent = db.licenseKeys.length;
+    const now = new Date();
+    const remaining = currentLicenseInfo.expirationTime - now;
+    
+    if (remaining <= 0) {
+        // Süre dolmuş
+        if (currentLang === 'tr') {
+            document.getElementById('timeRemaining').innerHTML = '<span style="color: #ef4444;">Lisans süresi doldu!</span>';
+        } else {
+            document.getElementById('timeRemaining').innerHTML = '<span style="color: #ef4444;">License expired!</span>';
+        }
+        
+        // Otomatik çıkış yap
+        setTimeout(() => {
+            document.getElementById('logoutBtn').click();
+            alert(currentLang === 'tr' ? 'Lisans süreniz doldu!' : 'Your license has expired!');
+        }, 2000);
+        return;
+    }
+    
+    // Kalan süreyi hesapla
+    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+    
+    let timeText = '';
+    if (currentLang === 'tr') {
+        if (days > 0) {
+            timeText = `${days} gün ${hours} saat ${minutes} dakika`;
+        } else if (hours > 0) {
+            timeText = `${hours} saat ${minutes} dakika ${seconds} saniye`;
+        } else {
+            timeText = `${minutes} dakika ${seconds} saniye`;
+        }
+    } else {
+        if (days > 0) {
+            timeText = `${days} days ${hours} hours ${minutes} minutes`;
+        } else if (hours > 0) {
+            timeText = `${hours} hours ${minutes} minutes ${seconds} seconds`;
+        } else {
+            timeText = `${minutes} minutes ${seconds} seconds`;
+        }
+    }
+    
+    document.getElementById('timeRemaining').textContent = timeText;
+}
+
+// Zaman güncellemesini başlat
+function startTimeUpdate() {
+    updateTimeRemaining();
+    if (!isAdmin) {
+        timeUpdateInterval = setInterval(updateTimeRemaining, 1000);
+    }
+}
+
+// Admin panelini göster
+function showAdminPanel() {
+    document.querySelector('.admin-only').style.display = 'flex';
 }

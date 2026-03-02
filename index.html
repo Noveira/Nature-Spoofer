@@ -45,17 +45,6 @@
 
     <!-- Ana Uygulama Ekranı -->
     <div id="mainScreen" class="screen">
-        <div class="titlebar">
-            <div class="titlebar-drag">
-                <span class="app-title">Masaüstü Uygulaması</span>
-            </div>
-            <div class="titlebar-controls">
-                <button class="titlebar-btn" id="minimizeBtn">─</button>
-                <button class="titlebar-btn" id="maximizeBtn">□</button>
-                <button class="titlebar-btn close" id="closeBtn">✕</button>
-            </div>
-        </div>
-        
         <div class="app-container">
             <aside class="sidebar">
                 <div class="user-profile">
@@ -63,8 +52,8 @@
                         <span id="userInitial">U</span>
                     </div>
                     <div class="user-info">
-                        <h3 id="displayName">Kullanıcı</h3>
-                        <p>Aktif</p>
+                        <h3 id="displayName" data-tr="Kullanıcı" data-en="User">Kullanıcı</h3>
+                        <p data-tr="Aktif" data-en="Active">Aktif</p>
                     </div>
                 </div>
                 
@@ -77,13 +66,13 @@
                         <span class="nav-icon">⬇️</span>
                         <span data-tr="İndirmeler" data-en="Downloads">İndirmeler</span>
                     </a>
-                    <a href="#" class="nav-item" data-page="files">
-                        <span class="nav-icon">📁</span>
-                        <span data-tr="Dosyalar" data-en="Files">Dosyalar</span>
-                    </a>
                     <a href="#" class="nav-item" data-page="settings">
                         <span class="nav-icon">⚙️</span>
                         <span data-tr="Ayarlar" data-en="Settings">Ayarlar</span>
+                    </a>
+                    <a href="#" class="nav-item admin-only" data-page="admin" style="display: none;">
+                        <span class="nav-icon">👑</span>
+                        <span data-tr="Admin Panel" data-en="Admin Panel">Admin Panel</span>
                     </a>
                 </nav>
                 
@@ -100,13 +89,16 @@
                             <h3 data-tr="Hoşgeldiniz!" data-en="Welcome!">Hoşgeldiniz!</h3>
                             <p data-tr="Nature Software'a hoş geldiniz. İndirmeler sekmesinden uygulamalarımızı indirebilirsiniz." data-en="Welcome to Nature Software. You can download our applications from the Downloads tab.">Nature Software'a hoş geldiniz. İndirmeler sekmesinden uygulamalarımızı indirebilirsiniz.</p>
                         </div>
-                        <div class="card">
-                            <h3 data-tr="İstatistikler" data-en="Statistics">İstatistikler</h3>
-                            <p><span data-tr="Toplam Kullanıcı:" data-en="Total Users:">Toplam Kullanıcı:</span> <strong id="userCount">0</strong></p>
+                        <div class="card license-card">
+                            <h3 data-tr="Lisans Bilgileri" data-en="License Information">Lisans Bilgileri</h3>
+                            <div class="license-info">
+                                <p><strong data-tr="Kalan Süre:" data-en="Time Remaining:">Kalan Süre:</strong></p>
+                                <p class="time-display" id="timeRemaining">--</p>
+                            </div>
                         </div>
                         <div class="card">
-                            <h3 data-tr="Bilgi" data-en="Info">Bilgi</h3>
-                            <p data-tr="Electron ile geliştirilmiştir." data-en="Developed with Electron.">Electron ile geliştirilmiştir.</p>
+                            <h3 data-tr="İstatistikler" data-en="Statistics">İstatistikler</h3>
+                            <p><span data-tr="Toplam Kullanıcı:" data-en="Total Users:">Toplam Kullanıcı:</span> <strong id="userCount">20</strong></p>
                         </div>
                     </div>
                 </div>
@@ -158,18 +150,49 @@
                     </div>
                 </div>
                 
-                <div class="content-page" id="files">
-                    <h2 data-tr="Dosyalar" data-en="Files">Dosyalar</h2>
-                    <p data-tr="Dosya yönetimi buraya eklenebilir." data-en="File management can be added here.">Dosya yönetimi buraya eklenebilir.</p>
-                </div>
-                
                 <div class="content-page" id="settings">
                     <h2 data-tr="Ayarlar" data-en="Settings">Ayarlar</h2>
-                    <div class="settings-group">
-                        <label>
-                            <input type="checkbox" id="darkMode">
-                            <span data-tr="Karanlık Mod" data-en="Dark Mode">Karanlık Mod</span>
-                        </label>
+                    
+                    <div class="settings-section">
+                        <h3 data-tr="Dil Ayarları" data-en="Language Settings">Dil Ayarları</h3>
+                        <div class="settings-group">
+                            <label>
+                                <input type="radio" name="language" value="tr" id="langTR" checked>
+                                <span data-tr="Türkçe" data-en="Turkish">Türkçe</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="language" value="en" id="langEN">
+                                <span data-tr="İngilizce" data-en="English">İngilizce</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3 data-tr="Görünüm" data-en="Appearance">Görünüm</h3>
+                        <div class="settings-group">
+                            <label>
+                                <input type="checkbox" id="darkMode">
+                                <span data-tr="Karanlık Mod" data-en="Dark Mode">Karanlık Mod</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-page" id="admin">
+                    <h2 data-tr="Admin Panel" data-en="Admin Panel">Admin Panel</h2>
+                    
+                    <div class="admin-warning">
+                        <span>👑</span>
+                        <p data-tr="Yönetici paneline hoş geldiniz. Bu alan sadece yöneticiler içindir." data-en="Welcome to the admin panel. This area is for administrators only.">Yönetici paneline hoş geldiniz. Bu alan sadece yöneticiler içindir.</p>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3 data-tr="Lisans Yönetimi" data-en="License Management">Lisans Yönetimi</h3>
+                        <div class="settings-group">
+                            <button class="reset-btn" id="resetLicenses">
+                                <span data-tr="Tüm Lisans Sürelerini Sıfırla" data-en="Reset All License Times">Tüm Lisans Sürelerini Sıfırla</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </main>
