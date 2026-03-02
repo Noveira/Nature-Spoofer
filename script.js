@@ -91,6 +91,10 @@ window.addEventListener('DOMContentLoaded', () => {
     // Başlangıçta Türkçe mesajları yükle
     updateMessages('tr');
     
+    // Mesaj alanını temizle
+    document.getElementById('loginMessage').textContent = '';
+    document.getElementById('loginMessage').className = 'message';
+    
     // Sayfa kapanırken lisans kullanımını serbest bırak
     window.addEventListener('beforeunload', () => {
         if (currentLicenseInfo && !currentLicenseInfo.isAdmin) {
@@ -146,6 +150,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 // Debug: Uygulama adını göster
                 console.log('App name from cgauth:', data.app_name);
                 console.log('Expected app name:', CGAuth.YOUR_APP_NAME);
+                console.log('Full cgauth response:', data);
                 
                 // Uygulama adı kontrolü (şimdilik devre dışı - cgauth'da ayarla)
                 // if (data.app_name !== CGAuth.YOUR_APP_NAME) {
@@ -154,12 +159,28 @@ window.addEventListener('DOMContentLoaded', () => {
                 //     return;
                 // }
                 
+                // expiry_date'den kalan süreyi hesapla
+                let expirationTime;
+                let daysRemaining = 0;
+                
+                if (data.expiry_date) {
+                    // expiry_date Unix timestamp (saniye cinsinden)
+                    expirationTime = new Date(data.expiry_date * 1000);
+                    const now = new Date();
+                    const remainingMs = expirationTime - now;
+                    daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
+                } else {
+                    // expiry_date yoksa sınırsız kabul et
+                    expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 yıl
+                    daysRemaining = 365;
+                }
+                
                 // Lisans geçerli
                 currentLicenseInfo = {
                     key: licenseKey,
                     activationTime: new Date(),
                     daysRemaining: daysRemaining,
-                    expirationTime: new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000),
+                    expirationTime: expirationTime,
                     isAdmin: data.is_admin || false,
                     appName: data.app_name,
                     status: data.status
