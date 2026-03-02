@@ -163,12 +163,20 @@ window.addEventListener('DOMContentLoaded', () => {
                 let expirationTime;
                 let daysRemaining = 0;
                 
-                if (data.expiry_date) {
+                if (data.expiry_date && !isNaN(data.expiry_date) && data.expiry_date > 0) {
                     // expiry_date Unix timestamp (saniye cinsinden)
                     expirationTime = new Date(data.expiry_date * 1000);
-                    const now = new Date();
-                    const remainingMs = expirationTime - now;
-                    daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
+                    
+                    // Geçerli bir tarih mi kontrol et
+                    if (isNaN(expirationTime.getTime())) {
+                        // Geçersiz tarih - 1 yıl varsayılan
+                        expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+                        daysRemaining = 365;
+                    } else {
+                        const now = new Date();
+                        const remainingMs = expirationTime - now;
+                        daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
+                    }
                 } else {
                     // expiry_date yoksa sınırsız kabul et
                     expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 yıl
@@ -301,6 +309,12 @@ function updateTimeRemaining() {
         } else {
             document.getElementById('timeRemaining').innerHTML = '<span style="color: #6ee7b7;">∞ Unlimited</span>';
         }
+        return;
+    }
+    
+    // expirationTime geçerli mi kontrol et
+    if (!currentLicenseInfo.expirationTime || isNaN(currentLicenseInfo.expirationTime.getTime())) {
+        document.getElementById('timeRemaining').textContent = currentLang === 'tr' ? 'Hesaplanıyor...' : 'Calculating...';
         return;
     }
     
