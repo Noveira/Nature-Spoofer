@@ -475,11 +475,12 @@ function revokeLicense(licenseKey) {
         localStorage.removeItem(`license_${licenseKey}`);
         
         const successText = currentLang === 'tr' 
-            ? ''
+            ? 'Lisansınız iptal edildi!'
             : 'License revoked!';
         
         alert(successText);
         loadActiveUsers();
     }
 }
+
 
