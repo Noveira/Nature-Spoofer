@@ -143,25 +143,32 @@ window.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 const data = result.data;
                 
-                // Debug: Uygulama adını göster
-                console.log('App name from cgauth:', data.app_name);
-                console.log('Expected app name:', CGAuth.YOUR_APP_NAME);
+                // Debug: Tüm data'yı göster
+                console.log('Full cgauth data:', data);
                 
-                // Uygulama adı kontrolü (şimdilik devre dışı - cgauth'da ayarla)
-                // if (data.app_name !== CGAuth.YOUR_APP_NAME) {
-                //     message.textContent = currentLang === 'tr' ? 'Bu lisans bu uygulama için geçerli değil!' : 'This license is not valid for this application!';
-                //     message.className = 'message error';
-                //     return;
-                // }
+                // Kalan gün hesaplama
+                let daysRemaining = 365; // Default
+                
+                if (data.expiry_date) {
+                    const expiryDate = new Date(data.expiry_date * 1000); // Unix timestamp to Date
+                    const now = new Date();
+                    const diffMs = expiryDate - now;
+                    daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+                } else if (data.days_remaining) {
+                    daysRemaining = data.days_remaining;
+                }
+                
+                console.log('Calculated days remaining:', daysRemaining);
                 
                 // Lisans geçerli
                 currentLicenseInfo = {
                     key: licenseKey,
                     activationTime: new Date(),
-                    daysRemaining: data.days_remaining || 30,
-                    expirationTime: new Date(Date.now() + (data.days_remaining || 30) * 24 * 60 * 60 * 1000),
+                    daysRemaining: daysRemaining,
+                    expirationTime: new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000),
                     isAdmin: data.is_admin || false,
-                    appName: data.app_name
+                    appName: data.app_name,
+                    status: data.status
                 };
                 
                 if (currentLicenseInfo.isAdmin) {
@@ -285,11 +292,11 @@ function updateTimeRemaining() {
             document.getElementById('timeRemaining').innerHTML = '<span style="color: #ef4444;">License expired!</span>';
         }
         
-        // Otomatik çıkış yap
-        setTimeout(() => {
-            document.getElementById('logoutBtn').click();
-            alert(currentLang === 'tr' ? 'Lisans süreniz doldu!' : 'Your license has expired!');
-        }, 2000);
+        // Otomatik çıkış yap (devre dışı - debug için)
+        // setTimeout(() => {
+        //     document.getElementById('logoutBtn').click();
+        //     alert(currentLang === 'tr' ? 'Lisans süreniz doldu!' : 'Your license has expired!');
+        // }, 2000);
         return;
     }
     
