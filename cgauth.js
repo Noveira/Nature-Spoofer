@@ -1,6 +1,6 @@
 class CGAuth {
     static API_URL = "https://cgauth.com/api/v1/";
-    static YOUR_APP_NAME = "NatureSoftware";
+    static YOUR_APP_NAME = "Nature Software";
     static API_KEY = "ffcc90ea46a2a2f75b0ea9cdf4c56730697deb415dfeddf7cb5542c7698c169e";
     static API_SECRET = "d9ddc48b80982ec7168633558ea4f318f1012e0b6d6d9b1475d6dd5a154207b3";
 
