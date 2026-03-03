@@ -151,79 +151,42 @@ window.addEventListener('DOMContentLoaded', () => {
                 console.log('=== CGAUTH FULL RESPONSE ===');
                 console.log('Full data object:', JSON.stringify(data, null, 2));
                 console.log('expiry_date:', data.expiry_date);
-                console.log('expires_at:', data.expires_at);
-                console.log('duration:', data.duration);
-                console.log('created_at:', data.created_at);
-                console.log('activated_at:', data.activated_at);
-                console.log('time_remaining:', data.time_remaining);
+                console.log('days_remaining:', data.days_remaining);
+                console.log('hours_remaining:', data.hours_remaining);
                 console.log('===========================');
                 
                 // expiry_date'den kalan süreyi hesapla
                 let expirationTime;
                 let daysRemaining = 0;
                 
-                // 1. Önce time_remaining veya duration varsa onu kullan (kalan saniye)
-                const remainingSeconds = data.time_remaining || data.duration;
-                
-                if (remainingSeconds && !isNaN(remainingSeconds) && remainingSeconds > 0) {
-                    console.log('Using remaining seconds:', remainingSeconds);
+                // cgauth expiry_date'i "YYYY-MM-DD HH:MM:SS" formatında string olarak döndürüyor
+                if (data.expiry_date && typeof data.expiry_date === 'string') {
+                    // String tarihi Date objesine çevir
+                    expirationTime = new Date(data.expiry_date.replace(' ', 'T') + 'Z'); // UTC olarak parse et
                     
-                    // Şu andan itibaren kalan süreyi ekle
-                    expirationTime = new Date(Date.now() + (remainingSeconds * 1000));
+                    console.log('Parsed expiration time:', expirationTime.toISOString());
                     
-                    console.log('Expiration time:', expirationTime.toISOString());
-                    
-                    const now = new Date();
-                    const remainingMs = expirationTime - now;
-                    daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
-                    
-                    console.log('Remaining ms:', remainingMs);
-                    console.log('Days remaining:', daysRemaining);
-                }
-                // 2. expiry_date varsa onu kullan
-                else {
-                    const expiryTimestamp = data.expiry_date || data.expires_at;
-                    
-                    if (expiryTimestamp) {
-                        const timestamp = typeof expiryTimestamp === 'string' ? parseInt(expiryTimestamp) : expiryTimestamp;
+                    if (!isNaN(expirationTime.getTime())) {
+                        const now = new Date();
+                        const remainingMs = expirationTime - now;
+                        daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
                         
-                        console.log('Using expiry timestamp:', timestamp);
-                        
-                        if (!isNaN(timestamp) && timestamp > 0) {
-                            // Eğer timestamp çok küçükse (1 yıldan az), kalan süre olarak kabul et
-                            if (timestamp < 31536000) { // 1 yıl = 31536000 saniye
-                                console.log('Timestamp is duration, not absolute time');
-                                expirationTime = new Date(Date.now() + (timestamp * 1000));
-                            } else {
-                                // Timestamp çok küçükse (< 10000000000) saniye, büyükse milisaniye
-                                const multiplier = timestamp < 10000000000 ? 1000 : 1;
-                                expirationTime = new Date(timestamp * multiplier);
-                            }
-                            
-                            console.log('Expiration date:', expirationTime.toISOString());
-                            
-                            if (!isNaN(expirationTime.getTime())) {
-                                const now = new Date();
-                                const remainingMs = expirationTime - now;
-                                daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
-                                
-                                console.log('Remaining ms:', remainingMs);
-                                console.log('Days remaining:', daysRemaining);
-                            } else {
-                                console.error('Invalid date created');
-                                expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-                                daysRemaining = 365;
-                            }
-                        } else {
-                            console.error('Invalid timestamp');
-                            expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-                            daysRemaining = 365;
-                        }
+                        console.log('Now:', now.toISOString());
+                        console.log('Remaining ms:', remainingMs);
+                        console.log('Days remaining calculated:', daysRemaining);
                     } else {
-                        console.warn('No expiry field found - using 365 days default');
-                        expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-                        daysRemaining = 365;
+                        console.error('Invalid date parsed from string');
+                        // Fallback: days_remaining ve hours_remaining kullan
+                        const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
+                        expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
+                        daysRemaining = data.days_remaining || 0;
                     }
+                } else {
+                    console.warn('expiry_date not found or not string, using days/hours_remaining');
+                    // Fallback: days_remaining ve hours_remaining kullan
+                    const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
+                    expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
+                    daysRemaining = data.days_remaining || 0;
                 }
                 
                 // Lisans geçerli
