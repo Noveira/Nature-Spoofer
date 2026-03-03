@@ -87,18 +87,10 @@ function updateMessages(lang) {
 function parseExpiryDate(expiryDateStr) {
     if (!expiryDateStr || typeof expiryDateStr !== 'string') return null;
     
-    // cgauth "YYYY-MM-DD HH:MM:SS" formatında UTC olarak döndürür.
-    // Sonuna 'Z' ekleyerek JavaScript'in bunu UTC olarak parse etmesini sağlıyoruz.
-    // Aksi halde local time (UTC+3) olarak yorumlar ve 3 saat fazla gösterir.
+    // cgauth expiry_date'i Türkiye saati (UTC+3) olarak döndürüyor.
+    // 'Z' EKLEMIYORUZ - tarayıcı bunu local time olarak doğru parse eder.
     const normalized = expiryDateStr.trim().replace(' ', 'T');
-    
-    // Eğer zaten timezone bilgisi varsa olduğu gibi kullan
-    if (normalized.endsWith('Z') || normalized.includes('+') || /\d{2}:\d{2}$/.test(normalized) === false) {
-        return new Date(normalized);
-    }
-    
-    // Timezone bilgisi yoksa UTC olarak kabul et (+ 'Z' ekle)
-    return new Date(normalized + 'Z');
+    return new Date(normalized);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
