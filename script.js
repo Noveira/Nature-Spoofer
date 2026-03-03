@@ -273,8 +273,16 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // İndirme butonu
     document.getElementById('downloadWindows').addEventListener('click', function() {
-        alert('Windows 10 sürümü indirilecek! (Dosya yolu eklenecek)');
+        // Google Drive direkt indirme linki
+        const downloadUrl = 'https://drive.google.com/uc?export=download&id=1uoP_1Ln7VRQutyIbjtMuFee_loW-a_hR';
+        
+        // Yeni sekmede aç
+        window.open(downloadUrl, '_blank');
+        
+        // Kullanıcıya bilgi ver
+        alert(currentLang === 'tr' ? 'İndirme başlatıldı!' : 'Download started!');
     });
     
     document.getElementById('langTR').addEventListener('change', function() {
