@@ -159,10 +159,21 @@ window.addEventListener('DOMContentLoaded', () => {
                 let expirationTime;
                 let daysRemaining = 0;
                 
-                // cgauth expiry_date'i "YYYY-MM-DD HH:MM:SS" formatında string olarak döndürüyor
-                if (data.expiry_date && typeof data.expiry_date === 'string') {
-                    // String tarihi Date objesine çevir
-                    expirationTime = new Date(data.expiry_date.replace(' ', 'T') + 'Z'); // UTC olarak parse et
+                // cgauth'dan gelen hours_remaining ve days_remaining değerlerini kullan (en doğrusu)
+                if (data.hours_remaining !== undefined || data.days_remaining !== undefined) {
+                    const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
+                    expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
+                    daysRemaining = data.days_remaining || 0;
+                    
+                    console.log('Using hours_remaining:', data.hours_remaining);
+                    console.log('Using days_remaining:', data.days_remaining);
+                    console.log('Total hours:', totalHours);
+                    console.log('Expiration time:', expirationTime.toISOString());
+                }
+                // Fallback: expiry_date string'ini parse et
+                else if (data.expiry_date && typeof data.expiry_date === 'string') {
+                    // String tarihi Date objesine çevir (timezone sorununu önlemek için local time olarak)
+                    expirationTime = new Date(data.expiry_date.replace(' ', 'T'));
                     
                     console.log('Parsed expiration time:', expirationTime.toISOString());
                     
@@ -176,17 +187,13 @@ window.addEventListener('DOMContentLoaded', () => {
                         console.log('Days remaining calculated:', daysRemaining);
                     } else {
                         console.error('Invalid date parsed from string');
-                        // Fallback: days_remaining ve hours_remaining kullan
-                        const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
-                        expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
-                        daysRemaining = data.days_remaining || 0;
+                        expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+                        daysRemaining = 365;
                     }
                 } else {
-                    console.warn('expiry_date not found or not string, using days/hours_remaining');
-                    // Fallback: days_remaining ve hours_remaining kullan
-                    const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
-                    expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
-                    daysRemaining = data.days_remaining || 0;
+                    console.warn('No expiry information found');
+                    expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+                    daysRemaining = 365;
                 }
                 
                 // Lisans geçerli
