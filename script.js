@@ -155,24 +155,22 @@ window.addEventListener('DOMContentLoaded', () => {
                 console.log('duration:', data.duration);
                 console.log('created_at:', data.created_at);
                 console.log('activated_at:', data.activated_at);
+                console.log('time_remaining:', data.time_remaining);
                 console.log('===========================');
                 
                 // expiry_date'den kalan süreyi hesapla
                 let expirationTime;
                 let daysRemaining = 0;
                 
-                // Önce duration varsa onu kullan (saniye cinsinden süre)
-                if (data.duration && !isNaN(data.duration) && data.duration > 0) {
-                    console.log('Using duration field:', data.duration, 'seconds');
+                // 1. Önce time_remaining veya duration varsa onu kullan (kalan saniye)
+                const remainingSeconds = data.time_remaining || data.duration;
+                
+                if (remainingSeconds && !isNaN(remainingSeconds) && remainingSeconds > 0) {
+                    console.log('Using remaining seconds:', remainingSeconds);
                     
-                    // Aktivasyon zamanını bul
-                    const activationTimestamp = data.activated_at || data.created_at || Math.floor(Date.now() / 1000);
-                    const activationTime = new Date(activationTimestamp * 1000);
+                    // Şu andan itibaren kalan süreyi ekle
+                    expirationTime = new Date(Date.now() + (remainingSeconds * 1000));
                     
-                    // Bitiş zamanını hesapla: aktivasyon + duration
-                    expirationTime = new Date(activationTime.getTime() + (data.duration * 1000));
-                    
-                    console.log('Activation time:', activationTime.toISOString());
                     console.log('Expiration time:', expirationTime.toISOString());
                     
                     const now = new Date();
@@ -182,9 +180,9 @@ window.addEventListener('DOMContentLoaded', () => {
                     console.log('Remaining ms:', remainingMs);
                     console.log('Days remaining:', daysRemaining);
                 }
-                // Yoksa expiry_date kullan
+                // 2. expiry_date varsa onu kullan
                 else {
-                    const expiryTimestamp = data.expiry_date || data.expires_at || data.expiration_date;
+                    const expiryTimestamp = data.expiry_date || data.expires_at;
                     
                     if (expiryTimestamp) {
                         const timestamp = typeof expiryTimestamp === 'string' ? parseInt(expiryTimestamp) : expiryTimestamp;
@@ -192,9 +190,15 @@ window.addEventListener('DOMContentLoaded', () => {
                         console.log('Using expiry timestamp:', timestamp);
                         
                         if (!isNaN(timestamp) && timestamp > 0) {
-                            // Timestamp çok küçükse (< 10000000000) saniye, büyükse milisaniye
-                            const multiplier = timestamp < 10000000000 ? 1000 : 1;
-                            expirationTime = new Date(timestamp * multiplier);
+                            // Eğer timestamp çok küçükse (1 yıldan az), kalan süre olarak kabul et
+                            if (timestamp < 31536000) { // 1 yıl = 31536000 saniye
+                                console.log('Timestamp is duration, not absolute time');
+                                expirationTime = new Date(Date.now() + (timestamp * 1000));
+                            } else {
+                                // Timestamp çok küçükse (< 10000000000) saniye, büyükse milisaniye
+                                const multiplier = timestamp < 10000000000 ? 1000 : 1;
+                                expirationTime = new Date(timestamp * multiplier);
+                            }
                             
                             console.log('Expiration date:', expirationTime.toISOString());
                             
