@@ -40,7 +40,6 @@ let currentLang = 'tr';
 function switchLanguage(lang) {
     currentLang = lang;
     
-    // Tüm çevrilebilir elementleri güncelle
     document.querySelectorAll('[data-tr]').forEach(el => {
         if (el.tagName === 'INPUT') {
             el.placeholder = el.getAttribute(`data-placeholder-${lang}`);
@@ -49,24 +48,20 @@ function switchLanguage(lang) {
         }
     });
     
-    // Input placeholder'ları ayrıca güncelle
     document.querySelectorAll('input[data-placeholder-tr]').forEach(input => {
         input.placeholder = input.getAttribute(`data-placeholder-${lang}`);
     });
     
-    // Dil butonlarını güncelle
     document.querySelectorAll('.lang-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
     });
     
-    // Ayarlar sekmesindeki radio butonları güncelle
     if (lang === 'tr') {
         document.getElementById('langTR').checked = true;
     } else {
         document.getElementById('langEN').checked = true;
     }
     
-    // Mesajları çevir
     updateMessages(lang);
 }
 
@@ -86,30 +81,44 @@ function updateMessages(lang) {
     window.messages = messages[lang];
 }
 
-// Sayfa yüklendiğinde
+// ============================================================
+// DÜZELTME: expiry_date'den doğru UTC parse fonksiyonu
+// ============================================================
+function parseExpiryDate(expiryDateStr) {
+    if (!expiryDateStr || typeof expiryDateStr !== 'string') return null;
+    
+    // cgauth "YYYY-MM-DD HH:MM:SS" formatında UTC olarak döndürür.
+    // Sonuna 'Z' ekleyerek JavaScript'in bunu UTC olarak parse etmesini sağlıyoruz.
+    // Aksi halde local time (UTC+3) olarak yorumlar ve 3 saat fazla gösterir.
+    const normalized = expiryDateStr.trim().replace(' ', 'T');
+    
+    // Eğer zaten timezone bilgisi varsa olduğu gibi kullan
+    if (normalized.endsWith('Z') || normalized.includes('+') || /\d{2}:\d{2}$/.test(normalized) === false) {
+        return new Date(normalized);
+    }
+    
+    // Timezone bilgisi yoksa UTC olarak kabul et (+ 'Z' ekle)
+    return new Date(normalized + 'Z');
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-    // Başlangıçta Türkçe mesajları yükle
     updateMessages('tr');
     
-    // Mesaj alanını temizle
     document.getElementById('loginMessage').textContent = '';
     document.getElementById('loginMessage').className = 'message';
     
-    // Sayfa kapanırken lisans kullanımını serbest bırak
     window.addEventListener('beforeunload', () => {
         if (currentLicenseInfo && !currentLicenseInfo.isAdmin) {
             sessionStorage.removeItem(`license_inuse_${currentLicenseInfo.key}`);
         }
     });
     
-    // Dil değiştirme butonları
     document.querySelectorAll('.lang-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             switchLanguage(this.getAttribute('data-lang'));
         });
     });
     
-    // Giriş formu - cgauth API entegrasyonu
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -122,18 +131,15 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // API ile lisans doğrulama
         message.textContent = currentLang === 'tr' ? 'Doğrulanıyor...' : 'Validating...';
         message.className = 'message';
         
         console.log('Validating license:', licenseKey);
         
         try {
-            // Get browser fingerprint (HWID)
             const hwid = await CGAuth.getHWID();
             console.log('HWID:', hwid);
             
-            // Authenticate via Vercel serverless function
             const response = await fetch('/api/auth-license', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -141,13 +147,11 @@ window.addEventListener('DOMContentLoaded', () => {
             });
             
             const result = await response.json();
-            
             console.log('Validation response:', result);
             
             if (result.success) {
                 const data = result.data;
                 
-                // Debug: cgauth response'u tamamen göster
                 console.log('=== CGAUTH FULL RESPONSE ===');
                 console.log('Full data object:', JSON.stringify(data, null, 2));
                 console.log('expiry_date:', data.expiry_date);
@@ -155,48 +159,52 @@ window.addEventListener('DOMContentLoaded', () => {
                 console.log('hours_remaining:', data.hours_remaining);
                 console.log('===========================');
                 
-                // expiry_date'den kalan süreyi hesapla
                 let expirationTime;
                 let daysRemaining = 0;
                 
-                // cgauth'dan gelen hours_remaining ve days_remaining değerlerini kullan (en doğrusu)
-                if (data.hours_remaining !== undefined || data.days_remaining !== undefined) {
-                    const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
-                    expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
-                    daysRemaining = data.days_remaining || 0;
+                // ============================================================
+                // DÜZELTME: Önce expiry_date kullan (en doğru yöntem).
+                // expiry_date UTC formatında gelir; 'Z' ekleyerek UTC olarak parse ediyoruz.
+                // hours_remaining/days_remaining cgauth'un timezone farkından
+                // dolayı 3 saat fazla gösterebilir, bu yüzden fallback olarak kullanılıyor.
+                // ============================================================
+                if (data.expiry_date && typeof data.expiry_date === 'string') {
+                    expirationTime = parseExpiryDate(data.expiry_date);
                     
-                    console.log('Using hours_remaining:', data.hours_remaining);
-                    console.log('Using days_remaining:', data.days_remaining);
-                    console.log('Total hours:', totalHours);
-                    console.log('Expiration time:', expirationTime.toISOString());
-                }
-                // Fallback: expiry_date string'ini parse et
-                else if (data.expiry_date && typeof data.expiry_date === 'string') {
-                    // String tarihi Date objesine çevir (timezone sorununu önlemek için local time olarak)
-                    expirationTime = new Date(data.expiry_date.replace(' ', 'T'));
-                    
-                    console.log('Parsed expiration time:', expirationTime.toISOString());
+                    console.log('Parsed expiration time (UTC):', expirationTime.toISOString());
+                    console.log('Now (UTC):', new Date().toISOString());
                     
                     if (!isNaN(expirationTime.getTime())) {
                         const now = new Date();
                         const remainingMs = expirationTime - now;
                         daysRemaining = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60 * 24)));
-                        
-                        console.log('Now:', now.toISOString());
                         console.log('Remaining ms:', remainingMs);
-                        console.log('Days remaining calculated:', daysRemaining);
+                        console.log('Days remaining:', daysRemaining);
                     } else {
-                        console.error('Invalid date parsed from string');
-                        expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-                        daysRemaining = 365;
+                        console.error('Geçersiz tarih formatı, hours_remaining kullanılıyor...');
+                        // Fallback: hours_remaining
+                        const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
+                        expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
+                        daysRemaining = data.days_remaining || 0;
                     }
-                } else {
-                    console.warn('No expiry information found');
+                }
+                // expiry_date yoksa hours_remaining/days_remaining kullan
+                else if (data.hours_remaining !== undefined || data.days_remaining !== undefined) {
+                    const totalHours = (data.days_remaining || 0) * 24 + (data.hours_remaining || 0);
+                    expirationTime = new Date(Date.now() + totalHours * 60 * 60 * 1000);
+                    daysRemaining = data.days_remaining || 0;
+                    
+                    console.log('Fallback - Using hours_remaining:', data.hours_remaining);
+                    console.log('Fallback - Using days_remaining:', data.days_remaining);
+                    console.log('Fallback - Total hours:', totalHours);
+                    console.log('Fallback - Expiration time:', expirationTime.toISOString());
+                }
+                else {
+                    console.warn('Süre bilgisi bulunamadı, varsayılan 365 gün kullanılıyor.');
                     expirationTime = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
                     daysRemaining = 365;
                 }
                 
-                // Lisans geçerli
                 currentLicenseInfo = {
                     key: licenseKey,
                     activationTime: new Date(),
@@ -213,7 +221,6 @@ window.addEventListener('DOMContentLoaded', () => {
                     isAdmin = true;
                 }
                 
-                // cgauth lisansını localStorage'a kaydet (hem admin hem user için - tracking için gerekli)
                 localStorage.setItem(`license_${licenseKey}`, new Date().toISOString());
                 
                 message.textContent = window.messages.loginSuccess;
@@ -228,7 +235,6 @@ window.addEventListener('DOMContentLoaded', () => {
                         document.getElementById('displayName').textContent = 'Admin';
                         document.getElementById('userInitial').textContent = 'A';
                     }
-                    // Her durumda time update başlat (admin için sadece display, user için countdown)
                     startTimeUpdate();
                 }, 800);
             } else {
@@ -242,22 +248,16 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Çıkış yap
     document.getElementById('logoutBtn').addEventListener('click', function() {
-        // Lisans kullanımını serbest bırak (sessionStorage temizliği - eski sistem için)
         if (currentLicenseInfo && !currentLicenseInfo.isAdmin) {
             sessionStorage.removeItem(`license_inuse_${currentLicenseInfo.key}`);
         }
-        
-        // NOT: localStorage'dan SİLMİYORUZ - sadece admin "İptal Et" butonu ile silinmeli
-        // Aksi halde her çıkışta lisans iptal edilmiş gibi görünür
         
         document.getElementById('mainScreen').classList.remove('active');
         document.getElementById('loginScreen').classList.add('active');
         document.getElementById('licenseKey').value = '';
         document.getElementById('loginMessage').textContent = '';
         
-        // Zaman güncellemesini durdur
         if (timeUpdateInterval) {
             clearInterval(timeUpdateInterval);
             timeUpdateInterval = null;
@@ -265,11 +265,9 @@ window.addEventListener('DOMContentLoaded', () => {
         currentLicenseInfo = null;
         isAdmin = false;
         
-        // Admin panelini gizle
         document.querySelector('.admin-only').style.display = 'none';
     });
     
-    // Menü navigasyonu
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
@@ -283,26 +281,18 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // İndirme butonları
     document.getElementById('downloadWindows').addEventListener('click', function() {
         alert('Windows 10 sürümü indirilecek! (Dosya yolu eklenecek)');
-        // window.location.href = 'downloads/NatureSoftware-Windows10.exe';
     });
     
-    // Dil ayarları (Ayarlar sekmesinden)
     document.getElementById('langTR').addEventListener('change', function() {
-        if (this.checked) {
-            switchLanguage('tr');
-        }
+        if (this.checked) switchLanguage('tr');
     });
     
     document.getElementById('langEN').addEventListener('change', function() {
-        if (this.checked) {
-            switchLanguage('en');
-        }
+        if (this.checked) switchLanguage('en');
     });
     
-    // Lisans sürelerini sıfırla
     document.getElementById('resetLicenses').addEventListener('click', function() {
         if (confirm('Tüm lisans süreleri sıfırlanacak. Emin misiniz?')) {
             localStorage.clear();
@@ -315,19 +305,15 @@ window.addEventListener('DOMContentLoaded', () => {
 function updateTimeRemaining() {
     if (!currentLicenseInfo) return;
     
-    // Admin kontrolü
     if (currentLicenseInfo.isAdmin) {
-        if (currentLang === 'tr') {
-            document.getElementById('timeRemaining').innerHTML = '<span style="color: #6ee7b7;">∞ Sınırsız</span>';
-        } else {
-            document.getElementById('timeRemaining').innerHTML = '<span style="color: #6ee7b7;">∞ Unlimited</span>';
-        }
+        document.getElementById('timeRemaining').innerHTML = 
+            `<span style="color: #6ee7b7;">${currentLang === 'tr' ? '∞ Sınırsız' : '∞ Unlimited'}</span>`;
         return;
     }
     
-    // expirationTime geçerli mi kontrol et
     if (!currentLicenseInfo.expirationTime || isNaN(currentLicenseInfo.expirationTime.getTime())) {
-        document.getElementById('timeRemaining').textContent = currentLang === 'tr' ? 'Hesaplanıyor...' : 'Calculating...';
+        document.getElementById('timeRemaining').textContent = 
+            currentLang === 'tr' ? 'Hesaplanıyor...' : 'Calculating...';
         return;
     }
     
@@ -335,22 +321,11 @@ function updateTimeRemaining() {
     const remaining = currentLicenseInfo.expirationTime - now;
     
     if (remaining <= 0) {
-        // Süre dolmuş
-        if (currentLang === 'tr') {
-            document.getElementById('timeRemaining').innerHTML = '<span style="color: #ef4444;">Lisans süresi doldu!</span>';
-        } else {
-            document.getElementById('timeRemaining').innerHTML = '<span style="color: #ef4444;">License expired!</span>';
-        }
-        
-        // Otomatik çıkış yap (devre dışı - debug için)
-        // setTimeout(() => {
-        //     document.getElementById('logoutBtn').click();
-        //     alert(currentLang === 'tr' ? 'Lisans süreniz doldu!' : 'Your license has expired!');
-        // }, 2000);
+        document.getElementById('timeRemaining').innerHTML = 
+            `<span style="color: #ef4444;">${currentLang === 'tr' ? 'Lisans süresi doldu!' : 'License expired!'}</span>`;
         return;
     }
     
-    // Kalan süreyi hesapla
     const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
     const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
@@ -358,25 +333,15 @@ function updateTimeRemaining() {
     
     let timeText = '';
     if (currentLang === 'tr') {
-        if (days > 0) {
-            timeText = `${days} gün ${hours} saat`;
-        } else if (hours > 0) {
-            timeText = `${hours} saat ${minutes} dakika`;
-        } else if (minutes > 0) {
-            timeText = `${minutes} dakika ${seconds} saniye`;
-        } else {
-            timeText = `${seconds} saniye`;
-        }
+        if (days > 0)         timeText = `${days} gün ${hours} saat`;
+        else if (hours > 0)   timeText = `${hours} saat ${minutes} dakika`;
+        else if (minutes > 0) timeText = `${minutes} dakika ${seconds} saniye`;
+        else                  timeText = `${seconds} saniye`;
     } else {
-        if (days > 0) {
-            timeText = `${days} days ${hours} hours`;
-        } else if (hours > 0) {
-            timeText = `${hours} hours ${minutes} minutes`;
-        } else if (minutes > 0) {
-            timeText = `${minutes} minutes ${seconds} seconds`;
-        } else {
-            timeText = `${seconds} seconds`;
-        }
+        if (days > 0)         timeText = `${days} days ${hours} hours`;
+        else if (hours > 0)   timeText = `${hours} hours ${minutes} minutes`;
+        else if (minutes > 0) timeText = `${minutes} minutes ${seconds} seconds`;
+        else                  timeText = `${seconds} seconds`;
     }
     
     document.getElementById('timeRemaining').textContent = timeText;
@@ -385,21 +350,16 @@ function updateTimeRemaining() {
 // Zaman güncellemesini başlat
 function startTimeUpdate() {
     updateTimeRemaining();
-    
-    // Her 1 saniyede kalan süreyi güncelle (admin için "∞ Sınırsız", user için countdown)
     timeUpdateInterval = setInterval(updateTimeRemaining, 1000);
     
-    // Sadece normal kullanıcılar için lisans iptal kontrolü yap
     if (!isAdmin && currentLicenseInfo && !currentLicenseInfo.isAdmin) {
         setInterval(() => {
             const activationTime = localStorage.getItem(`license_${currentLicenseInfo.key}`);
-            
-            // Lisans iptal edilmiş mi kontrol et (sadece admin tarafından manuel iptal için)
             if (!activationTime) {
                 alert(currentLang === 'tr' ? 'Lisansınız iptal edildi!' : 'Your license has been revoked!');
                 document.getElementById('logoutBtn').click();
             }
-        }, 30000); // 30 saniye
+        }, 30000);
     }
 }
 
@@ -408,7 +368,6 @@ function showAdminPanel() {
     document.querySelector('.admin-only').style.display = 'flex';
     loadActiveUsers();
     
-    // Her 1 saniyede bir tabloyu güncelle (saniye göstermek için)
     setInterval(() => {
         if (isAdmin && document.getElementById('admin').classList.contains('active')) {
             loadActiveUsers();
@@ -423,7 +382,6 @@ function loadActiveUsers() {
     
     let hasUsers = false;
     
-    // LocalStorage'daki tüm lisans kayıtlarını kontrol et
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         
@@ -431,7 +389,6 @@ function loadActiveUsers() {
             const licenseKey = key.replace('license_', '');
             const activationTime = localStorage.getItem(key);
             
-            // cgauth lisansları için - süre bilgisi currentLicenseInfo'dan gelir
             if (currentLicenseInfo && currentLicenseInfo.key === licenseKey) {
                 hasUsers = true;
                 
@@ -447,51 +404,14 @@ function loadActiveUsers() {
                     timeText = currentLang === 'tr' ? 'Süresi dolmuş' : 'Expired';
                     statusClass = 'expired';
                 } else {
-                    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-                    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-                    
-                    if (currentLang === 'tr') {
-                        if (days > 0) {
-                            timeText = `${days} gün ${hours} saat ${minutes} dakika ${seconds} saniye`;
-                        } else if (hours > 0) {
-                            timeText = `${hours} saat ${minutes} dakika ${seconds} saniye`;
-                        } else if (minutes > 0) {
-                            timeText = `${minutes} dakika ${seconds} saniye`;
-                        } else {
-                            timeText = `${seconds} saniye`;
-                        }
-                    } else {
-                        if (days > 0) {
-                            timeText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-                        } else if (hours > 0) {
-                            timeText = `${hours}h ${minutes}m ${seconds}s`;
-                        } else if (minutes > 0) {
-                            timeText = `${minutes}m ${seconds}s`;
-                        } else {
-                            timeText = `${seconds}s`;
-                        }
-                    }
+                    timeText = formatRemaining(remaining);
                     statusClass = 'active';
                 }
                 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><code>${licenseKey}</code></td>
-                    <td>${activationDate.toLocaleString()}</td>
-                    <td class="${statusClass}">${timeText}</td>
-                    <td>
-                        <button class="revoke-btn" onclick="revokeLicense('${licenseKey}')">
-                            <span data-tr="İptal Et" data-en="Revoke">${currentLang === 'tr' ? 'İptal Et' : 'Revoke'}</span>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
+                tbody.appendChild(buildRow(licenseKey, activationDate, timeText, statusClass));
                 continue;
             }
             
-            // Eski sistem lisansları için (validLicenseKeys array)
             const licenseData = validLicenseKeys.find(l => l.key === licenseKey);
             
             if (licenseData && licenseData.unit !== 'unlimited') {
@@ -501,13 +421,9 @@ function loadActiveUsers() {
                 const now = new Date();
                 
                 let expirationMs;
-                if (licenseData.unit === 'minutes') {
-                    expirationMs = licenseData.duration * 60 * 1000;
-                } else if (licenseData.unit === 'hours') {
-                    expirationMs = licenseData.duration * 60 * 60 * 1000;
-                } else {
-                    expirationMs = licenseData.duration * 24 * 60 * 60 * 1000;
-                }
+                if (licenseData.unit === 'minutes')     expirationMs = licenseData.duration * 60 * 1000;
+                else if (licenseData.unit === 'hours')  expirationMs = licenseData.duration * 60 * 60 * 1000;
+                else                                    expirationMs = licenseData.duration * 24 * 60 * 60 * 1000;
                 
                 const expirationDate = new Date(activationDate.getTime() + expirationMs);
                 const remaining = expirationDate - now;
@@ -519,47 +435,11 @@ function loadActiveUsers() {
                     timeText = currentLang === 'tr' ? 'Süresi dolmuş' : 'Expired';
                     statusClass = 'expired';
                 } else {
-                    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-                    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-                    
-                    if (currentLang === 'tr') {
-                        if (days > 0) {
-                            timeText = `${days} gün ${hours} saat ${minutes} dakika ${seconds} saniye`;
-                        } else if (hours > 0) {
-                            timeText = `${hours} saat ${minutes} dakika ${seconds} saniye`;
-                        } else if (minutes > 0) {
-                            timeText = `${minutes} dakika ${seconds} saniye`;
-                        } else {
-                            timeText = `${seconds} saniye`;
-                        }
-                    } else {
-                        if (days > 0) {
-                            timeText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-                        } else if (hours > 0) {
-                            timeText = `${hours}h ${minutes}m ${seconds}s`;
-                        } else if (minutes > 0) {
-                            timeText = `${minutes}m ${seconds}s`;
-                        } else {
-                            timeText = `${seconds}s`;
-                        }
-                    }
+                    timeText = formatRemaining(remaining);
                     statusClass = 'active';
                 }
                 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><code>${licenseKey}</code></td>
-                    <td>${activationDate.toLocaleString()}</td>
-                    <td class="${statusClass}">${timeText}</td>
-                    <td>
-                        <button class="revoke-btn" onclick="revokeLicense('${licenseKey}')">
-                            <span data-tr="İptal Et" data-en="Revoke">${currentLang === 'tr' ? 'İptal Et' : 'Revoke'}</span>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
+                tbody.appendChild(buildRow(licenseKey, activationDate, timeText, statusClass));
             }
         }
     }
@@ -568,27 +448,58 @@ function loadActiveUsers() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="4" style="text-align: center; color: #9ca3af;">
-                    <span data-tr="Aktif kullanıcı yok" data-en="No active users">${currentLang === 'tr' ? 'Aktif kullanıcı yok' : 'No active users'}</span>
+                    ${currentLang === 'tr' ? 'Aktif kullanıcı yok' : 'No active users'}
                 </td>
             </tr>
         `;
     }
 }
 
+// Kalan süreyi formatlı string olarak döndür
+function formatRemaining(remaining) {
+    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+    
+    if (currentLang === 'tr') {
+        if (days > 0)         return `${days} gün ${hours} saat ${minutes} dakika ${seconds} saniye`;
+        else if (hours > 0)   return `${hours} saat ${minutes} dakika ${seconds} saniye`;
+        else if (minutes > 0) return `${minutes} dakika ${seconds} saniye`;
+        else                  return `${seconds} saniye`;
+    } else {
+        if (days > 0)         return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        else if (hours > 0)   return `${hours}h ${minutes}m ${seconds}s`;
+        else if (minutes > 0) return `${minutes}m ${seconds}s`;
+        else                  return `${seconds}s`;
+    }
+}
+
+// Tablo satırı oluştur
+function buildRow(licenseKey, activationDate, timeText, statusClass) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td><code>${licenseKey}</code></td>
+        <td>${activationDate.toLocaleString()}</td>
+        <td class="${statusClass}">${timeText}</td>
+        <td>
+            <button class="revoke-btn" onclick="revokeLicense('${licenseKey}')">
+                ${currentLang === 'tr' ? 'İptal Et' : 'Revoke'}
+            </button>
+        </td>
+    `;
+    return row;
+}
+
 // Lisansı iptal et
 function revokeLicense(licenseKey) {
-    const confirmText = currentLang === 'tr' 
+    const confirmText = currentLang === 'tr'
         ? `${licenseKey} lisansını iptal etmek istediğinize emin misiniz?`
         : `Are you sure you want to revoke license ${licenseKey}?`;
     
     if (confirm(confirmText)) {
         localStorage.removeItem(`license_${licenseKey}`);
-        
-        const successText = currentLang === 'tr' 
-            ? 'Lisans iptal edildi!'
-            : 'License revoked!';
-        
-        alert(successText);
+        alert(currentLang === 'tr' ? 'Lisans iptal edildi!' : 'License revoked!');
         loadActiveUsers();
     }
 }
